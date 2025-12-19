@@ -835,7 +835,7 @@
           // 장애물 근처에 머무는 시간 추적 (낑김 방지)
           let nearestPin = null;
           let nearestDistance = Infinity;
-          
+
           pins.forEach((pin) => {
             let distance;
             if (pin.type === "circle") {
@@ -851,18 +851,18 @@
               const dy = ball.y - pin.y;
               distance = Math.sqrt(dx * dx + dy * dy) - ball.r - pin.radius;
             }
-            
+
             // 공 근처(30px 이내) 장애물 찾기
             if (distance < 30 && distance < nearestDistance) {
               nearestDistance = distance;
               nearestPin = pin;
             }
           });
-          
+
           // 같은 장애물 근처에 있는지 체크
           if (nearestPin && ball.nearbyPin === nearestPin) {
             ball.nearbyPinFrames++;
-            
+
             // 2초(120프레임) 이상 같은 장애물 근처에 있으면 제거
             if (ball.nearbyPinFrames > 120) {
               const index = pins.indexOf(nearestPin);
