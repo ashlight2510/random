@@ -30,7 +30,7 @@
   </head>
 
   <body
-    class="bg-black text-white min-h-screen flex flex-col items-center py-6 overflow-hidden"
+    class="bg-black text-white min-h-screen flex flex-col items-center py-6 overflow-y-auto"
     style="
       background: linear-gradient(
         180deg,
@@ -46,7 +46,7 @@
       >
         <div>
           <h1
-            class="text-4xl font-extrabold bg-gradient-to-r from-pink-500 via-cyan-500 to-purple-500 bg-clip-text text-transparent drop-shadow-[0_0_15px_rgba(236,72,153,0.5)]"
+            class="text-4xl font-extrabold mb-8 bg-gradient-to-r from-pink-500 via-cyan-500 to-purple-500 bg-clip-text text-transparent drop-shadow-[0_0_15px_rgba(236,72,153,0.5)]"
           >
             🎱 네온 핀볼 랜덤 뽑기
           </h1>
@@ -182,6 +182,7 @@
       let finishedBalls = [];
       let animationId;
       let participants = [];
+      let bird = null; // 엑스트라 새
       let cameraY = 0;
       let targetCameraY = 0;
       let gameStartTime = 0;
@@ -415,23 +416,69 @@
           }
         }
 
-        // 결승선 근처 회전 풍차 장애물 추가 (위로 튕기는 효과)
+        // 결승선 근처 회전 풍차 장애물 추가 (스펙타클한 효과)
         const finishLineY = canvas.height - 50;
-        const windmillCount = 3; // 풍차 개수
+        const windmillRadius = 70; // 큰 풍차
+        const centerGap = canvas.width * 0.25; // 중앙 공간 확보
 
-        for (let i = 0; i < windmillCount; i++) {
-          const x = (canvas.width / (windmillCount + 1)) * (i + 1);
-          const y = finishLineY - 80 - Math.random() * 60; // 결승선 위 80~140px
+        // 좌측 풍차
+        pins.push({
+          type: "windmill",
+          x: canvas.width * 0.25 - centerGap / 2,
+          y: finishLineY - 120,
+          radius: windmillRadius,
+          angle: Math.random() * Math.PI * 2,
+          rotationSpeed: 0.08 + Math.random() * 0.04, // 빠른 회전
+          color: "#00ffff", // 시안
+          pullRadius: 100, // 끌어당기는 범위
+          catchBall: null, // 잡은 공
+          catchAngle: 0, // 공을 잡은 각도
+          particleEffect: 0, // 파티클 효과
+        });
 
-          pins.push({
-            type: "windmill",
-            x: x,
-            y: y,
-            radius: 30 + Math.random() * 20, // 풍차 반지름
-            angle: Math.random() * Math.PI * 2, // 초기 각도
-            rotationSpeed: 0.05 + Math.random() * 0.05, // 회전 속도
+        // 우측 풍차
+        pins.push({
+          type: "windmill",
+          x: canvas.width * 0.75 + centerGap / 2,
+          y: finishLineY - 120,
+          radius: windmillRadius,
+          angle: Math.random() * Math.PI * 2,
+          rotationSpeed: -(0.08 + Math.random() * 0.04), // 반대 방향 회전
+          color: "#ff00ff", // 핑크
+          pullRadius: 100, // 끌어당기는 범위
+          catchBall: null, // 잡은 공
+          catchAngle: 0, // 공을 잡은 각도
+          particleEffect: 0, // 파티클 효과
+        });
+
+        // 중앙 작은 풍차
+        pins.push({
+          type: "windmill",
+          x: canvas.width / 2, // 정중앙
+          y: finishLineY - 100, // 좌우보다 조금 위
+          radius: 40, // 작은 크기
+          angle: Math.random() * Math.PI * 2,
+          rotationSpeed: 0.12 + Math.random() * 0.06, // 빠른 회전
+          color: "#ffff00", // 노란색
+          pullRadius: 60, // 작은 끌어당기는 범위
+          catchBall: null, // 잡은 공
+          catchAngle: 0, // 공을 잡은 각도
+          particleEffect: 0, // 파티클 효과
+        });
+
+        // 엑스트라 새 초기화 (랜덤 1마리)
+        if (Math.random() < 1.0) {
+          // 항상 1마리 (100% 확률)
+          bird = {
+            x: Math.random() * (canvas.width - 100) + 50,
+            y: 200 + Math.random() * (canvas.height - 600), // 중간 구간에 배치
+            vx: (Math.random() - 0.5) * 1.5, // 좌우 이동 속도
+            vy: Math.sin(Math.random() * Math.PI * 2) * 0.3, // 상하 살짝 움직임
+            size: 25 + Math.random() * 15, // 새 크기
+            wingFlap: 0, // 날개 펄럭임 애니메이션
             color: neonColors[Math.floor(Math.random() * neonColors.length)],
-          });
+            direction: Math.random() > 0.5 ? 1 : -1, // 좌우 방향
+          };
         }
       }
 
@@ -515,41 +562,118 @@
 
           ctx.restore();
         } else if (pin.type === "windmill") {
-          // 회전하는 풍차 그리기
+          // 회전하는 풍차 그리기 (스펙타클 버전)
           ctx.save();
           ctx.translate(pin.x, pin.y);
           ctx.rotate(pin.angle);
 
-          // 풍차 날개 4개
+          // 끌어당기는 범위 글로우 효과
+          if (pin.particleEffect > 0) {
+            ctx.shadowBlur = 30 + pin.particleEffect * 5;
+            ctx.shadowColor = pin.color;
+            ctx.beginPath();
+            ctx.arc(0, 0, pin.radius + 10, 0, Math.PI * 2);
+            ctx.strokeStyle = pin.color + "60";
+            ctx.lineWidth = 3;
+            ctx.stroke();
+          }
+
+          // 풍차 날개 4개 (더 화려하게)
           for (let i = 0; i < 4; i++) {
             ctx.save();
             ctx.rotate((Math.PI / 2) * i);
 
+            // 날개 그라디언트
+            const gradient = ctx.createLinearGradient(0, 0, pin.radius, 0);
+            gradient.addColorStop(0, pin.color + "FF");
+            gradient.addColorStop(1, pin.color + "80");
+
             // 날개 그리기
             ctx.beginPath();
             ctx.moveTo(0, 0);
-            ctx.lineTo(pin.radius, -pin.radius * 0.3);
-            ctx.lineTo(pin.radius * 0.8, 0);
+            ctx.lineTo(pin.radius, -pin.radius * 0.4);
+            ctx.lineTo(pin.radius * 0.9, 0);
+            ctx.lineTo(pin.radius * 0.7, pin.radius * 0.1);
             ctx.closePath();
-            ctx.fillStyle = pin.color;
+            ctx.fillStyle = gradient;
             ctx.fill();
             ctx.strokeStyle = pin.color;
-            ctx.lineWidth = 3;
+            ctx.lineWidth = 5;
             ctx.stroke();
+
+            // 날개 하이라이트
+            ctx.fillStyle = "rgba(255, 255, 255, 0.4)";
+            ctx.fill();
 
             ctx.restore();
           }
 
-          // 중심 원
+          // 중심 원 (더 크고 화려하게)
+          const centerGradient = ctx.createRadialGradient(0, 0, 0, 0, 0, 15);
+          centerGradient.addColorStop(0, "#fff");
+          centerGradient.addColorStop(1, pin.color);
           ctx.beginPath();
-          ctx.arc(0, 0, 8, 0, Math.PI * 2);
-          ctx.fillStyle = pin.color;
+          ctx.arc(0, 0, 15, 0, Math.PI * 2);
+          ctx.fillStyle = centerGradient;
           ctx.fill();
           ctx.strokeStyle = "#fff";
-          ctx.lineWidth = 2;
+          ctx.lineWidth = 4;
           ctx.stroke();
 
           ctx.restore();
+
+          // 끌어당기는 범위 표시 (반투명 원)
+          ctx.save();
+          ctx.globalAlpha = 0.2;
+          ctx.beginPath();
+          ctx.arc(pin.x, pin.y, pin.pullRadius, 0, Math.PI * 2);
+          ctx.strokeStyle = pin.color;
+          ctx.lineWidth = 2;
+          ctx.stroke();
+          ctx.restore();
+
+          // 풍차에 잡혀있는 공 그리기 (풍차와 함께 회전)
+          if (pin.catchBall && !pin.catchBall.finished) {
+            ctx.save();
+            ctx.translate(pin.x, pin.y);
+            ctx.rotate(pin.catchAngle);
+
+            // 공 위치
+            const ballX = Math.cos(0) * (pin.radius + pin.catchBall.r);
+            const ballY = Math.sin(0) * (pin.radius + pin.catchBall.r);
+            ctx.translate(ballX, ballY);
+
+            // 공 그리기 (회전된 상태)
+            ctx.shadowBlur = 25;
+            ctx.shadowColor = pin.catchBall.color;
+            ctx.beginPath();
+            ctx.arc(0, 0, pin.catchBall.r, 0, Math.PI * 2);
+            const gradient = ctx.createRadialGradient(
+              0,
+              0,
+              0,
+              0,
+              0,
+              pin.catchBall.r
+            );
+            gradient.addColorStop(0, pin.catchBall.color + "FF");
+            gradient.addColorStop(1, pin.catchBall.color + "CC");
+            ctx.fillStyle = gradient;
+            ctx.fill();
+            ctx.strokeStyle = pin.catchBall.color;
+            ctx.lineWidth = 3;
+            ctx.stroke();
+
+            // 공 이름
+            ctx.shadowBlur = 10;
+            ctx.fillStyle = "#fff";
+            ctx.font = "bold 11px sans-serif";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText(pin.catchBall.name.slice(0, 2), 0, 2);
+
+            ctx.restore();
+          }
         }
 
         ctx.shadowBlur = 0;
@@ -633,6 +757,126 @@
           // 짧은 이름은 한 줄로 전체 표시
           ctx.fillText(ball.name, ball.x, ball.y + 2);
         }
+        ctx.shadowBlur = 0;
+      }
+
+      /* ---------------- 새 그리기 (웃긴 새) ---------------- */
+      function drawBird(bird) {
+        ctx.save();
+        ctx.translate(bird.x, bird.y);
+        ctx.scale(bird.direction, 1); // 좌우 방향에 따라 뒤집기
+
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = bird.color;
+
+        // 날개 펄럭임 애니메이션
+        bird.wingFlap += 0.3;
+        const wingAngle = Math.sin(bird.wingFlap) * 0.3;
+
+        // 몸통 (타원)
+        ctx.fillStyle = bird.color;
+        ctx.beginPath();
+        ctx.ellipse(0, 0, bird.size * 0.4, bird.size * 0.5, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = bird.color;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        // 머리 (원)
+        ctx.beginPath();
+        ctx.arc(
+          bird.size * 0.5,
+          -bird.size * 0.2,
+          bird.size * 0.3,
+          0,
+          Math.PI * 2
+        );
+        ctx.fill();
+        ctx.stroke();
+
+        // 부리 (삼각형 - 웃긴 모양)
+        ctx.fillStyle = "#ffff00";
+        ctx.beginPath();
+        ctx.moveTo(bird.size * 0.7, -bird.size * 0.2);
+        ctx.lineTo(bird.size * 1.0, -bird.size * 0.1);
+        ctx.lineTo(bird.size * 0.7, 0);
+        ctx.closePath();
+        ctx.fill();
+
+        // 눈 (큰 눈)
+        ctx.fillStyle = "#fff";
+        ctx.beginPath();
+        ctx.arc(
+          bird.size * 0.55,
+          -bird.size * 0.25,
+          bird.size * 0.08,
+          0,
+          Math.PI * 2
+        );
+        ctx.fill();
+        ctx.fillStyle = "#000";
+        ctx.beginPath();
+        ctx.arc(
+          bird.size * 0.57,
+          -bird.size * 0.27,
+          bird.size * 0.05,
+          0,
+          Math.PI * 2
+        );
+        ctx.fill();
+
+        // 왼쪽 날개 (펄럭임)
+        ctx.save();
+        ctx.rotate(wingAngle);
+        ctx.fillStyle = bird.color;
+        ctx.beginPath();
+        ctx.ellipse(
+          -bird.size * 0.3,
+          0,
+          bird.size * 0.25,
+          bird.size * 0.4,
+          -0.5,
+          0,
+          Math.PI * 2
+        );
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+
+        // 오른쪽 날개 (펄럭임)
+        ctx.save();
+        ctx.rotate(-wingAngle);
+        ctx.fillStyle = bird.color;
+        ctx.beginPath();
+        ctx.ellipse(
+          bird.size * 0.3,
+          0,
+          bird.size * 0.25,
+          bird.size * 0.4,
+          0.5,
+          0,
+          Math.PI * 2
+        );
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+
+        // 꼬리
+        ctx.fillStyle = bird.color;
+        ctx.beginPath();
+        ctx.ellipse(
+          -bird.size * 0.5,
+          bird.size * 0.2,
+          bird.size * 0.15,
+          bird.size * 0.3,
+          0.3,
+          0,
+          Math.PI * 2
+        );
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.restore();
         ctx.shadowBlur = 0;
       }
 
@@ -725,15 +969,91 @@
           ctx.stroke();
         }
 
-        // 풍차 회전 업데이트
+        // 풍차 회전 업데이트 및 공 끌어당기기/던지기
         pins.forEach((pin) => {
           if (pin.type === "windmill") {
+            // 회전 업데이트
             pin.angle += pin.rotationSpeed;
             if (pin.angle > Math.PI * 2) {
               pin.angle -= Math.PI * 2;
             }
+
+            // 공을 잡고 있는 경우
+            if (pin.catchBall && !pin.catchBall.finished) {
+              pin.catchAngle += pin.rotationSpeed * 1.5; // 공도 함께 회전
+
+              // 공을 풍차 주변에 위치시키기
+              pin.catchBall.x =
+                pin.x +
+                Math.cos(pin.catchAngle) * (pin.radius + pin.catchBall.r);
+              pin.catchBall.y =
+                pin.y +
+                Math.sin(pin.catchAngle) * (pin.radius + pin.catchBall.r);
+
+              // 공 속도 제거 (풍차가 잡고 있음)
+              pin.catchBall.vx *= 0.9;
+              pin.catchBall.vy *= 0.9;
+
+              // 0.5초 후 던지기 (스펙타클!)
+              if (pin.catchAngle > pin.angle + Math.PI) {
+                const throwSpeed = Math.abs(pin.rotationSpeed) * 100; // 회전 속도에 비례
+                pin.catchBall.vx = Math.cos(pin.catchAngle) * throwSpeed;
+                pin.catchBall.vy = Math.sin(pin.catchAngle) * throwSpeed - 5; // 위로 강하게
+
+                pin.particleEffect = 30; // 파티클 효과
+                pin.catchBall = null;
+                playSound("finish");
+                vibrate([50, 30, 50]);
+              }
+            }
+
+            // 파티클 효과 감소
+            if (pin.particleEffect > 0) {
+              pin.particleEffect--;
+            }
           }
         });
+
+        // 새 움직임 업데이트
+        if (bird) {
+          bird.x += bird.vx;
+          bird.y += bird.vy;
+
+          // 좌우 경계에서 반사
+          if (bird.x < bird.size || bird.x > canvas.width - bird.size) {
+            bird.vx *= -1;
+            bird.direction *= -1; // 방향 전환
+            bird.x = Math.max(
+              bird.size,
+              Math.min(canvas.width - bird.size, bird.x)
+            );
+          }
+
+          // 상하 경계에서 반사 (살짝만)
+          if (
+            bird.y < bird.size * 2 ||
+            bird.y > canvas.height - bird.size * 3
+          ) {
+            bird.vy *= -0.5;
+            bird.y = Math.max(
+              bird.size * 2,
+              Math.min(canvas.height - bird.size * 3, bird.y)
+            );
+          }
+
+          // 자연스러운 좌우 배회 (속도 변화)
+          bird.vx += (Math.random() - 0.5) * 0.05;
+          bird.vx = Math.max(-2.0, Math.min(2.0, bird.vx)); // 최대 속도 제한
+
+          // 상하 살짝 움직임
+          bird.vy += (Math.random() - 0.5) * 0.02;
+          bird.vy = Math.max(-0.5, Math.min(0.5, bird.vy));
+        }
+
+        // 새 그리기
+        if (bird) {
+          drawBird(bird);
+        }
 
         // 핀 그리기
         pins.forEach((pin) => drawPin(pin));
@@ -915,7 +1235,7 @@
                   vibrate(10);
                 }
               } else if (pin.type === "bar") {
-                // 회전된 막대기 충돌
+                // 회전된 막대기 충돌 - 낑김 방지 강화
                 const dx = ball.x - pin.x;
                 const dy = ball.y - pin.y;
                 const cos = Math.cos(-pin.angle);
@@ -941,8 +1261,61 @@
 
                 if (distance > 0) {
                   const overlap = ball.r - distance;
-                  ball.x += (distX / distance) * overlap * 1.1;
-                  ball.y += (distY / distance) * overlap * 1.1;
+
+                  // 낑김 방지: 여러 번 보정하여 확실히 밖으로 밀어내기
+                  if (overlap > 0) {
+                    // 1차 보정 (더 강하게)
+                    const pushDistance = overlap * 1.5;
+                    ball.x += (distX / distance) * pushDistance;
+                    ball.y += (distY / distance) * pushDistance;
+
+                    // 2차 보정: 다시 확인하여 여전히 안쪽에 있으면 추가로 밀어내기
+                    const dx2 = ball.x - pin.x;
+                    const dy2 = ball.y - pin.y;
+                    const localX2 = dx2 * cos - dy2 * sin;
+                    const localY2 = dx2 * sin + dy2 * cos;
+                    const closestX2 = Math.max(
+                      -pin.length / 2,
+                      Math.min(localX2, pin.length / 2)
+                    );
+                    const closestY2 = Math.max(
+                      -pin.width / 2,
+                      Math.min(localY2, pin.width / 2)
+                    );
+                    const worldClosestX2 =
+                      pin.x + closestX2 * cos - closestY2 * sin;
+                    const worldClosestY2 =
+                      pin.y + closestX2 * sin + closestY2 * cos;
+                    const distX2 = ball.x - worldClosestX2;
+                    const distY2 = ball.y - worldClosestY2;
+                    const distance2 = Math.sqrt(
+                      distX2 * distX2 + distY2 * distY2
+                    );
+
+                    if (distance2 < ball.r) {
+                      // 여전히 안쪽에 있으면 추가로 밀어내기
+                      const overlap2 = ball.r - distance2;
+                      ball.x += (distX2 / distance2) * overlap2 * 2.0;
+                      ball.y += (distY2 / distance2) * overlap2 * 2.0;
+                    }
+
+                    // 3차 보정: 막대기 끝부분에 낑혔을 경우 처리
+                    const edgeDistance = Math.min(
+                      Math.abs(localX - -pin.length / 2),
+                      Math.abs(localX - pin.length / 2)
+                    );
+                    if (edgeDistance < ball.r * 0.5) {
+                      // 막대기 끝에 가까우면 수직 방향으로 밀어내기
+                      const edgeNormalX = localX < 0 ? -1 : 1;
+                      const edgeNormalY = 0;
+                      const worldEdgeNormalX =
+                        edgeNormalX * cos - edgeNormalY * sin;
+                      const worldEdgeNormalY =
+                        edgeNormalX * sin + edgeNormalY * cos;
+                      ball.x += worldEdgeNormalX * ball.r * 0.5;
+                      ball.y += worldEdgeNormalY * ball.r * 0.5;
+                    }
+                  }
 
                   // 막대기의 법선 벡터를 따라 튕기기
                   const normalX = Math.cos(pin.angle + Math.PI / 2);
@@ -952,6 +1325,41 @@
                   ball.vy -= 2 * dot * normalY * 1.0;
                   ball.vx *= 0.85;
                   ball.vy *= 0.85;
+
+                  // 낑김 방지: 속도도 추가로 보정
+                  const finalDx = ball.x - pin.x;
+                  const finalDy = ball.y - pin.y;
+                  const finalLocalX = finalDx * cos - finalDy * sin;
+                  const finalLocalY = finalDx * sin + finalDy * cos;
+                  const finalDist = Math.sqrt(
+                    Math.pow(
+                      Math.max(
+                        -pin.length / 2,
+                        Math.min(finalLocalX, pin.length / 2)
+                      ) - finalLocalX,
+                      2
+                    ) +
+                      Math.pow(
+                        Math.max(
+                          -pin.width / 2,
+                          Math.min(finalLocalY, pin.width / 2)
+                        ) - finalLocalY,
+                        2
+                      )
+                  );
+
+                  if (finalDist < ball.r * 0.9) {
+                    // 여전히 너무 가까우면 속도로 밀어내기
+                    const escapeSpeed = 2.0;
+                    ball.vx +=
+                      (finalDx /
+                        Math.sqrt(finalDx * finalDx + finalDy * finalDy)) *
+                      escapeSpeed;
+                    ball.vy +=
+                      (finalDy /
+                        Math.sqrt(finalDx * finalDx + finalDy * finalDy)) *
+                      escapeSpeed;
+                  }
 
                   // 위로 너무 튕기는 것 방지 (아래 방향 속도 우선)
                   if (ball.vy < 0) {
@@ -966,44 +1374,101 @@
                   vibrate(10);
                 }
               } else if (pin.type === "windmill") {
-                // 풍차와 충돌 - 위로 강하게 튕기기
+                // 풍차와 공의 상호작용 (끌어당기기, 잡기, 던지기)
                 const dx = ball.x - pin.x;
                 const dy = ball.y - pin.y;
                 const distance = Math.sqrt(dx * dx + dy * dy);
 
-                if (distance > 0) {
-                  // 풍차가 회전하는 방향 고려
-                  const angle = Math.atan2(dy, dx);
-                  const overlap = ball.r + pin.radius - distance;
-                  ball.x += (dx / distance) * overlap * 1.1;
-                  ball.y += (dy / distance) * overlap * 1.1;
+                // 이미 공을 잡고 있으면 처리 안 함
+                if (pin.catchBall === ball) {
+                  return;
+                }
 
-                  // 풍차의 회전 방향에 따라 튕기는 힘 적용
-                  const speed = Math.sqrt(
-                    ball.vx * ball.vx + ball.vy * ball.vy
-                  );
-                  const bounceForce = speed * 1.5; // 풍차는 강하게 튕김
+                // 끌어당기는 범위 내에 있으면
+                if (distance < pin.pullRadius && !pin.catchBall) {
+                  // 풍차 쪽으로 끌어당기기
+                  const pullForce =
+                    ((pin.pullRadius - distance) / pin.pullRadius) * 2.0;
+                  ball.vx += (dx / distance) * pullForce * 0.5;
+                  ball.vy += (dy / distance) * pullForce * 0.5;
+                  pin.particleEffect = 10; // 글로우 효과
+                }
 
-                  // 위로 튕기기 (풍차의 목적)
-                  const bounceAngle = angle - Math.PI / 2; // 약간 위쪽으로
-                  ball.vx = Math.cos(bounceAngle) * bounceForce * 0.7;
-                  ball.vy = Math.sin(bounceAngle) * bounceForce * 1.2; // 위로 강하게
+                // 직접 충돌 시
+                if (distance < ball.r + pin.radius && !pin.catchBall) {
+                  // 공을 잡기 (50% 확률)
+                  if (
+                    Math.random() > 0.5 &&
+                    distance < ball.r + pin.radius * 0.8
+                  ) {
+                    pin.catchBall = ball;
+                    pin.catchAngle = pin.angle;
+                    pin.particleEffect = 30; // 큰 글로우 효과
+                    playSound("finish");
+                    vibrate(50);
+                  } else {
+                    // 아니면 튕기기
+                    const angle = Math.atan2(dy, dx);
+                    const overlap = ball.r + pin.radius - distance;
+                    ball.x += (dx / distance) * overlap * 1.1;
+                    ball.y += (dy / distance) * overlap * 1.1;
 
-                  // 풍차의 회전 방향 추가 힘
-                  const rotationEffect = Math.cos(pin.angle) * 0.5;
-                  ball.vx += rotationEffect;
+                    const speed = Math.sqrt(
+                      ball.vx * ball.vx + ball.vy * ball.vy
+                    );
+                    const bounceForce = Math.max(speed * 3.0, 5.0); // 더 강하게
 
-                  // 위로 튕기는 것을 허용하되 너무 강하지 않게
-                  if (ball.vy < -3) {
-                    ball.vy = -3; // 위로 최대 3까지만
+                    // 풍차 회전 방향에 따라 튕기기
+                    const rotationAngle = pin.angle + Math.PI / 2;
+                    ball.vx = Math.cos(rotationAngle) * bounceForce;
+                    ball.vy = Math.sin(rotationAngle) * bounceForce - 3; // 위로 추가 힘
+
+                    // 위로 튕기는 것을 허용
+                    if (ball.vy < -6) {
+                      ball.vy = -6;
+                    }
+
+                    playSound("bounce");
+                    vibrate(15);
                   }
-
-                  playSound("bounce");
-                  vibrate(15);
                 }
               }
             }
           });
+
+          // 새와 충돌
+          if (bird) {
+            const dx = ball.x - bird.x;
+            const dy = ball.y - bird.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            const collisionDistance = ball.r + bird.size * 0.6; // 새와 공의 충돌 범위
+
+            if (distance < collisionDistance && distance > 0) {
+              // 충돌 처리
+              const overlap = collisionDistance - distance;
+              ball.x += (dx / distance) * overlap * 1.1;
+              ball.y += (dy / distance) * overlap * 1.1;
+
+              // 위로 강하게 튕기기 (새가 공을 위로 밀어올림)
+              const speed = Math.sqrt(ball.vx * ball.vx + ball.vy * ball.vy);
+              const bounceForce = Math.max(speed * 2.0, 3.5); // 새는 강하게 튕김
+
+              // 위 방향으로 강하게 튕기기
+              const angle = Math.atan2(dy, dx);
+              ball.vx = Math.cos(angle) * bounceForce * 0.6;
+              ball.vy = Math.sin(angle) * bounceForce * 1.3; // 위로 강하게
+
+              // 추가 위 방향 힘
+              ball.vy -= bounceForce * 0.7;
+
+              // 새도 반대 방향으로 살짝 밀림
+              bird.vx -= (dx / distance) * 0.3;
+              bird.vy -= (dy / distance) * 0.2;
+
+              playSound("bounce");
+              vibrate(20);
+            }
+          }
 
           // 공끼리 충돌
           balls.forEach((other) => {
@@ -1126,6 +1591,11 @@
       /* ---------------- 결과 표시 ---------------- */
       function showResult() {
         resultEl.classList.remove("hidden");
+        // 결과 영역으로 스크롤
+        setTimeout(() => {
+          resultEl.scrollIntoView({ behavior: "smooth", block: "start" });
+        }, 100);
+
         const sorted = [...finishedBalls].sort(
           (a, b) => a.finishOrder - b.finishOrder
         );
