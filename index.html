@@ -464,6 +464,8 @@
             color: neonColors[i % neonColors.length],
             lastY: 20, // 마지막 y 위치 추적
             stuckFrames: 0, // 같은 위치에 머문 프레임 수
+            nearbyPin: null, // 근처에 있는 장애물
+            nearbyPinFrames: 0, // 같은 장애물 근처에 머문 프레임 수
           });
         });
       }
@@ -828,6 +830,54 @@
             if (Math.abs(ball.vx) < 0.3) {
               ball.vx += (Math.random() - 0.5) * 1.0;
             }
+          }
+
+          // 장애물 근처에 머무는 시간 추적 (낑김 방지)
+          let nearestPin = null;
+          let nearestDistance = Infinity;
+          
+          pins.forEach((pin) => {
+            let distance;
+            if (pin.type === "circle") {
+              const dx = ball.x - pin.x;
+              const dy = ball.y - pin.y;
+              distance = Math.sqrt(dx * dx + dy * dy) - ball.r - pin.r;
+            } else if (pin.type === "bar") {
+              const dx = ball.x - pin.x;
+              const dy = ball.y - pin.y;
+              distance = Math.sqrt(dx * dx + dy * dy) - ball.r - pin.length / 2;
+            } else if (pin.type === "windmill") {
+              const dx = ball.x - pin.x;
+              const dy = ball.y - pin.y;
+              distance = Math.sqrt(dx * dx + dy * dy) - ball.r - pin.radius;
+            }
+            
+            // 공 근처(30px 이내) 장애물 찾기
+            if (distance < 30 && distance < nearestDistance) {
+              nearestDistance = distance;
+              nearestPin = pin;
+            }
+          });
+          
+          // 같은 장애물 근처에 있는지 체크
+          if (nearestPin && ball.nearbyPin === nearestPin) {
+            ball.nearbyPinFrames++;
+            
+            // 2초(120프레임) 이상 같은 장애물 근처에 있으면 제거
+            if (ball.nearbyPinFrames > 120) {
+              const index = pins.indexOf(nearestPin);
+              if (index > -1) {
+                pins.splice(index, 1);
+                playSound("finish"); // 제거 효과음
+                vibrate(30);
+              }
+              ball.nearbyPin = null;
+              ball.nearbyPinFrames = 0;
+            }
+          } else {
+            // 다른 장애물이거나 장애물이 없으면 초기화
+            ball.nearbyPin = nearestPin;
+            ball.nearbyPinFrames = nearestPin ? 1 : 0;
           }
 
           // 핀과 충돌
