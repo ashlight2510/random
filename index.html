@@ -1787,6 +1787,19 @@
         animationId = requestAnimationFrame(animate);
       }
 
+      const RESTART_DELAY_MS = 2000;
+
+      function loadResultAd() {
+        const ad = document.getElementById("resultAd");
+        if (!ad || ad.dataset.loaded) return;
+        try {
+          (window.adsbygoogle = window.adsbygoogle || []).push({});
+          ad.dataset.loaded = "true";
+        } catch {
+          // ignore ad loading errors
+        }
+      }
+
       /* ---------------- 결과 표시 ---------------- */
       function showResult() {
         resultEl.classList.remove("hidden");
@@ -1834,13 +1847,34 @@
               )
               .join("")}
           </div>
+          <div id="resultAd" class="mt-4">
+            <ins
+              class="adsbygoogle"
+              style="display:block; width:100%;"
+              data-ad-client="ca-pub-1204894220949193"
+              data-ad-slot="5145068706"
+              data-ad-format="auto"
+              data-full-width-responsive="true"
+            ></ins>
+          </div>
           <button
-            onclick="location.reload()"
-            class="w-full mt-4 py-3 rounded-xl bg-emerald-400 text-black font-bold hover:bg-emerald-300 transition"
+            id="retryBtn"
+            class="w-full mt-4 py-3 rounded-xl bg-emerald-400 text-black font-bold hover:bg-emerald-300 transition disabled:opacity-60 disabled:cursor-not-allowed"
           >
             ${t("retryBtn")}
           </button>
         `;
+        loadResultAd();
+        const retryBtn = document.getElementById("retryBtn");
+        if (retryBtn) {
+          retryBtn.disabled = true;
+          setTimeout(() => {
+            retryBtn.disabled = false;
+            retryBtn.addEventListener("click", () => location.reload(), {
+              once: true,
+            });
+          }, RESTART_DELAY_MS);
+        }
       }
 
       /* ---------------- 게임 시작 ---------------- */
