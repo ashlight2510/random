@@ -163,9 +163,7 @@
           data-i18n-placeholder="placeholderParticipants"
           placeholder="예: 철수 영희 민수&#10;또는 개수 지정: 철수2 영희*3 민수/5"
           class="w-full h-24 p-3 rounded text-sm mb-3 resize-none bg-black/50 border border-cyan-500/50 text-cyan-100 placeholder-cyan-500/50 focus:border-cyan-400 focus:shadow-[0_0_15px_rgba(34,211,238,0.5)] focus:outline-none"
-        >
-참가자1 참가자2 참가자3</textarea
-        >
+        ></textarea>
         <p class="text-xs text-pink-300 mb-4" data-i18n="hintCount">
           💡 이름 뒤에 숫자(철수2) 또는 별표(영희*3)로 공 개수 지정 가능
         </p>
@@ -227,6 +225,7 @@
           alertNoParticipants: "참가자를 입력해주세요!",
           resultTitle: "🏁 완주 순위",
           resultFinishOrder: "번째로 완주",
+          resultRank: "위",
           retryBtn: "다시 하기 🔄",
         },
         en: {
@@ -242,6 +241,7 @@
           alertNoParticipants: "Please enter participants!",
           resultTitle: "🏁 Finish Ranking",
           resultFinishOrder: "th to finish",
+          resultRank: "",
           retryBtn: "Try Again 🔄",
         },
       };
@@ -397,7 +397,19 @@
 
       /* ---------------- 랜덤 이름 생성 ---------------- */
       function generateRandomNames(count = 3) {
-        const funnyNames = [
+        const lang = window.currentLang || "ko";
+        const funnyNames = lang === "en" ? [
+          "Alice", "Bob", "Charlie", "David", "Emma", "Frank", "Grace", "Henry",
+          "Ivy", "Jack", "Kate", "Leo", "Mia", "Noah", "Olivia", "Paul",
+          "Quinn", "Ruby", "Sam", "Tina", "Uma", "Victor", "Wendy", "Xander",
+          "Yuki", "Zoe", "Alex", "Ben", "Chris", "Diana", "Ethan", "Fiona",
+          "George", "Hannah", "Ian", "Julia", "Kevin", "Luna", "Max", "Nina",
+          "Oscar", "Penny", "Quinn", "Rose", "Steve", "Tara", "Ursula", "Vince",
+          "Will", "Xara", "Yara", "Zack", "Amy", "Blake", "Cara", "Drew",
+          "Eve", "Finn", "Gina", "Hugo", "Iris", "Jake", "Kara", "Luke",
+          "Maya", "Nate", "Owen", "Pam", "Quin", "Rex", "Sue", "Tom",
+          "Uma", "Vera", "Wade", "Xena", "Yuki", "Zane"
+        ] : [
           "똑똑",
           "멍멍",
           "야옹",
@@ -1750,7 +1762,8 @@
           ctx.shadowColor = "#ffff00";
           ctx.fillStyle = "#ffff00";
           ctx.font = "bold 16px sans-serif";
-          ctx.fillText(`${ball.finishOrder}위`, ball.x, ball.y - ball.r - 8);
+          const t = window.t || ((key, vars = {}) => key);
+          ctx.fillText(`${ball.finishOrder}${t("resultRank")}`, ball.x, ball.y - ball.r - 8);
           ctx.shadowBlur = 0;
         });
 
@@ -1790,13 +1803,16 @@
       const RESTART_DELAY_MS = 2000;
 
       function loadResultAd() {
-        const ad = document.getElementById("resultAd");
-        if (!ad || ad.dataset.loaded) return;
+        const adContainer = document.getElementById("resultAd");
+        if (!adContainer || adContainer.dataset.loaded) return;
         try {
-          (window.adsbygoogle = window.adsbygoogle || []).push({});
-          ad.dataset.loaded = "true";
-        } catch {
-          // ignore ad loading errors
+          const ad = adContainer.querySelector("ins.adsbygoogle");
+          if (ad) {
+            (window.adsbygoogle = window.adsbygoogle || []).push({});
+            adContainer.dataset.loaded = "true";
+          }
+        } catch (e) {
+          console.warn("Ad loading error:", e);
         }
       }
 
@@ -1907,9 +1923,22 @@
       };
 
       /* ---------------- 페이지 로드 시 기본값 설정 ---------------- */
-      window.addEventListener("DOMContentLoaded", () => {
+      function updatePlaceholder() {
         participantsInput.value = generateRandomNames(3);
+      }
+      
+      window.addEventListener("DOMContentLoaded", () => {
+        updatePlaceholder();
       });
+      
+      // 언어 변경 시 placeholder 업데이트
+      const originalSetLang = window.setLang;
+      if (originalSetLang) {
+        window.setLang = function(lang, options) {
+          originalSetLang(lang, options);
+          setTimeout(updatePlaceholder, 100);
+        };
+      }
     </script>
   
 <ins class="adsbygoogle"
